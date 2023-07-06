@@ -10,7 +10,7 @@ vec3 EvalBrdf(vec3 N, vec3 L, vec3 V, Material mat)
     const float alpha = mat.shininess;
 
     vec3 H = normalize(L + V);
-    float LH = max(dot(L, H), 0.0);
+    float LH = dot(L, H);
 
     // L = Wi
     // V = Wo
@@ -26,64 +26,43 @@ vec3 EvalBrdf(vec3 N, vec3 L, vec3 V, Material mat)
     float D = clamp(mN, 0.0, 1.0) * alpha_square
             / (PI * pow(mN, 4) * pow(alpha_square + tan_square_theta_m, 2));
 
-    // G factor
+    // G factor with V
     float mV = dot(H, V);
     float NV = dot(N, V);
     float tan_square_theta_v = (1.0 -  NV * NV) /  NV * NV;
-    float G;
-    if(NV > 1.0 || sqrt(tan_square_theta_v)==0)
+    float GV;
+    if(NV > 1.0 || sqrt(tan_square_theta_v) == 0)
     {
-        G = 1.0;
+        GV = 1.0;
     }
     else
     {
-        G = clamp(mV/NV, 0.0, 1.0) * 2 / (1.0 + sqrt(1 + alpha_square * tan_square_theta_v));
+        int x;
+        if (mV / NV > 0) x = 1;
+        else x = 0;
+        GV = x * 2 / (1.0 + sqrt(1 + alpha_square * tan_square_theta_v));
     }
 
-    // vec3 Ambient = pcRay.tempAmbient.xyz;
-    // vec3 Ii = pcRay.tempLightInt.xyz;
-    // return only BRDF
+    // G factor with L
+    float mL = LH; // dot(L, H);
     float NL = dot(N, L);
-    return max(NL, 0.0) * ((Kd / PI) + ( (D * G * F) / (4 * abs(NL) * abs(NV)) ) );
-    
-}
-
-vec3 EvalBrdf2(vec3 N, vec3 L, vec3 V, Material mat)
-{
-    vec3 Kd = mat.diffuse;
-    vec3 Ks = mat.specular;
-    const float alpha = mat.shininess;
-    vec3 H = normalize(L+V); // same as (Wo+Wi)||Wo+Wi||
-    // L = wi
-    // V = wo
-    // H = m
-
-    // D Term
-    float dotmN = dot(H, N);
-    float tan_theta_m_squared = (1.0 - dotmN * dotmN) / (dotmN * dotmN);
-    float num =pow(alpha,2);
-    float denom = PI * pow(dotmN,4) * pow((pow(alpha,2) + tan_theta_m_squared),2);
-    float D = clamp(dotmN, 0.0, 1.0) * num/denom;
-
-    // F Term 
-    float dotLH = max(dot(L,H),0.0);
-    vec3 F = Ks + (vec3(1.0) - Ks) * pow((1-dotLH),5);
-
-    // G Term
-    float dotvN = dot(V, N);
-    float dotvm = dot(V, H);
-    float tan_theta_v_squared = (1.0 - dotvN * dotvN) / (dotvN * dotvN);
-    float G=0;
-    if(dotvN > 1.0 || sqrt(tan_theta_v_squared)==0)
+    float tan_square_theta_l = (1.0 -  NL * NL) /  NL * NL;
+    float GL;
+    if(NL > 1.0 || sqrt(tan_square_theta_l) == 0)
     {
-        G = 1.0;
+        GL = 1.0;
     }
     else
     {
-        G = clamp(dotvm/dotvN, 0.0, 1.0) * 2 / (1 + sqrt(1+pow(alpha,2)* tan_theta_v_squared));
+        int x;
+        if (mL / NL > 0) x = 1;
+        else x = 0;
+        GL = x * 2 / (1.0 + sqrt(1 + alpha_square * tan_square_theta_l));
     }
-    return ( max( dot(N,L), 0.0) * ( Kd/PI + (D*F*G) / ( 4 * abs(dot(V,N)) * abs(dot(L,N)) ) ) );//
-}
+    float G = GV * GL;
+
+    return max(NL, 0.0) * ((Kd / PI) + ( (D * G * F) / (4 * abs(NL) * abs(NV)) ) );
+}   
 
 vec3 SampleLobe(vec3 A, float c, float phi)
 {
