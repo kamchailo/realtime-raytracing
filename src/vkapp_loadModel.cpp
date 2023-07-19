@@ -174,6 +174,14 @@ void ModelData::readAssimpFile(const std::string& path, const mat4& M)
     printf("Assimp mNumMaterials: %d\n", aiscene->mNumMaterials);
     printf("Assimp mNumTextures: %d\n", aiscene->mNumTextures);
 
+    /*
+    printf("============================\n");
+    printf("============================\n\n\n");
+    printf("Assimp TEST: %d\n", aiscene->mRootNode->mNumChildren);
+    printf("\n\n============================\n");
+    printf("============================\n");
+    */
+
     for (int i=0;  i<aiscene->mNumMaterials;  i++) {
         aiMaterial* mtl = aiscene->mMaterials[i];
         aiString name;
@@ -197,6 +205,9 @@ void ModelData::readAssimpFile(const std::string& path, const mat4& M)
             newmat.textureId = -1; }
         
         else {
+            ////////////////////////////////////////////////
+            // Read material from mtl and make own material
+            ////////////////////////////////////////////////
             vec3 Kd(0.5f, 0.5f, 0.5f); 
             vec3 Ks(0.03f, 0.03f, 0.03f);
             if (AI_SUCCESS == hd) Kd = vec3(diff.r, diff.g, diff.b);

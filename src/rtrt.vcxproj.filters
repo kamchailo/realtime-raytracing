@@ -115,7 +115,10 @@
     <CustomBuild Include="shaders\raytraceShadow.rchit">
       <Filter>Shader Files</Filter>
     </CustomBuild>
-    <CustomBuild Include="shaders\denoiseX.comp" />
-    <CustomBuild Include="shaders\denoiseY.comp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\denoise.comp">
+      <Filter>Shader Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

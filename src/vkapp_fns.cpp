@@ -23,7 +23,11 @@ void VkApp::destroyAllVulkanResources()
     // @@
      vkDeviceWaitIdle(m_device);  // Uncomment this when you have an m_device created.
 
-    
+    // Destroy denoise descriptor (Buffers)
+     //m_denoiseDesc.destroy(m_device);
+
+
+
      // Destroy Raytracing resources
      m_shaderBindingTableBW.destroy(m_device);
 
@@ -31,8 +35,17 @@ void VkApp::destroyAllVulkanResources()
      vkDestroyPipeline(m_device, m_rtPipeline, nullptr);
 
      m_rtDesc.destroy(m_device);
+
+     // Destroy Accelerator Structure
      m_rtBuilder.destroy();
+
+     // Destroy buffer for raytracing
      m_rtColCurrBuffer.destroy(m_device);
+     m_rtColPrevBuffer.destroy(m_device);
+     m_rtKdCurrBuffer.destroy(m_device);
+     m_rtKdPrevBuffer.destroy(m_device);
+     m_rtNdCurrBuffer.destroy(m_device);
+     m_rtNdPrevBuffer.destroy(m_device);
 
      // Destroy from createScPipeline();
      vkDestroyPipelineLayout(m_device, m_scanlinePipelineLayout, nullptr);
@@ -632,7 +645,6 @@ void VkApp::createSwapchain()
         memBarrier.subresourceRange     = range;
         m_barriers[i] = memBarrier;
     }
-
     // Create a temporary command buffer. submit the layout conversion
     // command, submit and destroy the command buffer.
     VkCommandBuffer cmd = createTempCmdBuffer();
@@ -640,6 +652,8 @@ void VkApp::createSwapchain()
                          VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0, 0, nullptr, 0,
                          nullptr, m_imageCount, m_barriers.data());
     submitTempCmdBuffer(cmd);
+    /*
+    */
 
     // Create the three synchronization objects.  These are not
     // technically part of the swap chain, but they are used

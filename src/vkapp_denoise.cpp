@@ -108,10 +108,16 @@ void VkApp::denoise()
 
         // Wait until denoise shader is done writing to m_denoiseBuffer
         imgMemBarrier.image = m_denoiseBuffer.image;
-        vkCmdPipelineBarrier(m_commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        vkCmdPipelineBarrier(m_commandBuffer, 
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                              VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                             VK_DEPENDENCY_DEVICE_GROUP_BIT,
-                             0, nullptr, 0, nullptr, 1, &imgMemBarrier);
+                             VK_DEPENDENCY_DEVICE_GROUP_BIT,            // non-device-local wait for all synchronization in the device
+                             0, 
+                             nullptr, 
+                             0, 
+                             nullptr, 
+                             1, 
+                             &imgMemBarrier);
 
         // @@ Copy the denoised results (in m_denoiseBuffer) back to
         // the input buffer (m_scImageBuffer) for the next denoising

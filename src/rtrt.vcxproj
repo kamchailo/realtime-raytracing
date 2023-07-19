@@ -74,24 +74,6 @@
       <Outputs>spv\%(Filename)%(Extension).spv</Outputs>
       <BuildInParallel>true</BuildInParallel>
     </CustomBuild>
-    <CustomBuild Include="shaders\denoiseX.comp">
-      <FileType>Document</FileType>
-      <LinkObjects>false</LinkObjects>
-      <AdditionalInputs>shaders\shared_structs.h</AdditionalInputs>
-      <Command>cmd /C "if exist %(Identity)    %VULKAN_SDK%/Bin/glslangValidator.exe -V --target-env vulkan1.2 -o spv\%(Filename)%(Extension).spv   %(Identity)"</Command>
-      <Message>Compiling shader %(Identity)</Message>
-      <Outputs>spv\%(Filename)%(Extension).spv</Outputs>
-      <BuildInParallel>true</BuildInParallel>
-    </CustomBuild>
-    <CustomBuild Include="shaders\denoiseY.comp">
-      <FileType>Document</FileType>
-      <LinkObjects>false</LinkObjects>
-      <AdditionalInputs>shaders\shared_structs.h</AdditionalInputs>
-      <Command>cmd /C "if exist %(Identity)    %VULKAN_SDK%/Bin/glslangValidator.exe -V --target-env vulkan1.2 -o spv\%(Filename)%(Extension).spv   %(Identity)"</Command>
-      <Message>Compiling shader %(Identity)</Message>
-      <Outputs>spv\%(Filename)%(Extension).spv</Outputs>
-      <BuildInParallel>true</BuildInParallel>
-    </CustomBuild>
     <CustomBuild Include="shaders\raytrace.rchit">
       <FileType>Document</FileType>
       <LinkObjects>false</LinkObjects>
@@ -147,6 +129,9 @@
     <ClInclude Include="image_wrap.h" />
     <ClInclude Include="vkapp.h" />
     <ClInclude Include="acceleration_wrap.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\denoise.comp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

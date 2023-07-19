@@ -12,9 +12,47 @@ layout(set = 0, binding = 2, rgba32f) uniform image2D kdBuff;
 layout(set = 0, binding = 3, rgba32f) uniform image2D ndBuff;
 
 layout(push_constant) uniform _pcDenoise { PushConstantDenoise pc; };
-float kernel[5] = float[5](1.0/16.0, 4.0/16.0, 6.0/16.0, 4.0/16.0, 1.0/16.0);
+float gaussian[5] = float[5](1.0/16.0, 4.0/16.0, 6.0/16.0, 4.0/16.0, 1.0/16.0);
 
 void main()
 {
-    // Intentionally empty;  To be filled in later in the semester
+    ivec2 gpos = ivec2(gl_GlobalInvocationID.xy);  // Index of central pixel being denoised
+    
+    // Values associated with the central pixel
+    // @@ Calculate/read each of these for the central pixel at gpos
+    // cKd = read kdBuff at gpos, clamp value to vec3(0.1) or above
+    // cVal = read .xyz of inImage at gpos;  the pixel value to be denoised
+    // cDem = cVal/cKd;  The pixel value demodulated.
+    // cNrm   = read ndBuff .xyz at gpos
+    // cDepth = read ndBuff .w at gpos
+    
+    vec3 numerator = vec3(0.0);
+    float denominator = 0.0;
+    for (int i=-2;  i<=2;  i++)
+        for (int j=-2;  j<=2;  j++) {
+            ivec2 offset = ivec2(i,j)*pc.stepwidth; // Offset of 5x5 pixels **with holes**
+            // Values associated with the loop's offset pixel
+            // @@ Calculate/read a similar set of values as above,
+            // but from location  gpos+offset
+            // and named  pKd, pVal, pDem, pNrm, pDepth. 
+
+            // @@ Calculate the weight factor by comparing this loop's
+            // offset pixel to the central pixel.  The weight is a product of 4 factors:
+            //  1: h_weight = guassian[i+2] for a Gaussian distribution in the horizontal direction
+            //  2: v_weight = guassian[j+2] for a Gaussian distribution in the vertical direction
+            //  3: a depth related weight:
+            //      d_weight = exp( -(t*t)/pc.depthFactor ); // or 1.0 if depthFactor is zero
+            //      for t = cDepth-pDepth;
+            //  4: a normal related weight
+            //      n_weight = exp(-d/(pc.normFactor)); // or 1.0 if normFactor is zero
+            //      for t = cNrm-pNrm
+            //      and d = dot(t,t)/(pc.stepwidth*pc.stepwidth);
+            numerator += pDem * weight;
+            denominator += weight;
+        }
+    
+    vec3 outVal = cKd*numerator/denominator; // Re-modulate the color
+    if (denominator == 0) outVal = cVal;
+    
+    imageStore(outImage, gpos, vec4(outVal,0));
 }

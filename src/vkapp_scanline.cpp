@@ -700,7 +700,8 @@ void VkApp::rasterize()
     vkCmdBindDescriptorSets(m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             m_scanlinePipelineLayout, 0, 1, &m_scDesc.descSet, 0, nullptr);
 
-    for(const ObjInst& inst : m_objInst) {
+    for(const ObjInst& inst : m_objInst) 
+    {
         auto& object            = m_objData[inst.objIndex];
         
         // Information pushed at each draw call
@@ -720,7 +721,8 @@ void VkApp::rasterize()
         vkCmdBindVertexBuffers(m_commandBuffer, 0, 1, &object.vertexBuffer.buffer, &offset);
         vkCmdBindIndexBuffer(m_commandBuffer, object.indexBuffer.buffer, 0,
                              VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(m_commandBuffer, object.nbIndices, 1, 0, 0, 0); }
+        vkCmdDrawIndexed(m_commandBuffer, object.nbIndices, 1, 0, 0, 0); 
+    }
     
     vkCmdEndRenderPass(m_commandBuffer);
 }

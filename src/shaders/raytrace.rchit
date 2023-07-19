@@ -17,4 +17,5 @@ void main()
     payload.primitiveIndex = gl_PrimitiveID;
     payload.bc = vec3(1.0-bc.x-bc.y, bc.x, bc.y);
     payload.hitPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+    payload.hitDist = gl_HitTEXT;
 }

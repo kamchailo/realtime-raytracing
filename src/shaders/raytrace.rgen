@@ -20,6 +20,12 @@ layout(push_constant) uniform _PushConstantRay { PushConstantRay pcRay; };
 // Ray tracing descriptor set: 0:acceleration structure, and 1: color output image
 layout(set=0, binding=0) uniform accelerationStructureEXT topLevelAS;
 layout(set=0, binding=1, rgba32f) uniform image2D colCurr; // Output image: m_rtColCurrBuffer
+layout(set=0, binding=2, rgba32f) uniform image2D colPrev; // Output image: m_rtColPrevBuffer
+layout(set=0, binding=3, rgba32f) uniform image2D kdCurr; // Output image: m_rtKdCurrBuffer
+layout(set=0, binding=4, rgba32f) uniform image2D kdPrev; // Output image: m_rtKdPrevBuffer
+layout(set=0, binding=5, rgba32f) uniform image2D ndCurr; // Output image: m_rtNdCurrBuffer
+layout(set=0, binding=6, rgba32f) uniform image2D ndPrev; // Output image: m_rtNdPrevBuffer
+
 
 // Object model descriptor set: 0: matrices, 1:object buffer addresses, 2: texture list
 layout(set=1, binding=0) uniform _MatrixUniforms { MatrixUniforms mats; };
@@ -66,13 +72,19 @@ void main()
     vec3 Wi;
     vec3 Wo;
 
-
     // Path tracing -- Monte-Carlo
     payload.seed = tea(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x, pcRay.frameSeed);
     // C = Pixel color, accumulated color along the path; output at the end
     vec3 C = vec3(0.0, 0.0, 0.0); 
     // W = Accumulation of f/p weights along path; multiplied by light
     vec3 W = vec3(1.0, 1.0, 1.0);
+
+    // History Accumulation
+    bool firstHit;
+    float firstDepth;
+    vec3 firstNormal;
+    vec4 firstKd;
+    vec3 firstPos;
 
     // Loop through ray-by-ray along a path
     for( int i =0; i < pcRay.depth; ++i)
@@ -95,6 +107,7 @@ void main()
         {
             break;
         }
+
 
         // Dereference objDesc, calc vertices, mat, nrm, uv; read texture
         // If something was hit, find the object data.
@@ -128,6 +141,16 @@ void main()
             mat.diffuse = texture(textureSamplers[(txtId)], uv).xyz;
         }
 
+        // First hit
+        if( i == 0 )
+        {
+            firstHit = payload.hit;
+            firstDepth = payload.hitDist;
+            firstNormal = nrm;
+            firstKd = vec4(mat.diffuse, 1);
+            firstPos = payload.hitPos;
+        }
+
         // If material indicates triangle is a light, accumulate the light value.
         if (dot(mat.emission, mat.emission) > 0.0) 
         {
@@ -136,6 +159,7 @@ void main()
             // imageStore(colCurr, ivec2(gl_LaunchIDEXT.xy), vec4(mat.emission,1.0));
             // return; 
         }
+
 
         // @@ FUTURE EXPLICIT light
 
@@ -172,6 +196,7 @@ void main()
     }
     
     // Accumulate (or not) C into output image
+    /*
     if(pcRay.clear)
     {
         imageStore(colCurr, ivec2(gl_LaunchIDEXT.xy), vec4(C, 1.0));
@@ -180,9 +205,134 @@ void main()
     {
         vec4 old = imageLoad(colCurr, ivec2(gl_LaunchIDEXT.xy));
         vec3 Ave = old.xyz;         // Existing average color
-        float N = old.w;         // Existing count
-        Ave += (C - Ave) / (N + 1.0);
+        float newN = old.w + 1.0;         // Existing count
+        Ave += (C - Ave) / newN;
         //imageStore(colCurr, ivec2(gl_LaunchIDEXT.xy), vec4(C, N + 1.0));
-        imageStore(colCurr, ivec2(gl_LaunchIDEXT.xy), vec4(Ave, N + 1.0));
+        if( !any(isnan(Ave)) && !any(isinf(Ave)) )
+        {
+            imageStore(colCurr, ivec2(gl_LaunchIDEXT.xy), vec4(Ave, newN));
+        }
+    }
+    */
+
+    // New History Accumulation
+    //vec4 old = imageLoad(colCurr, ivec2(gl_LaunchIDEXT.xy)); 
+    // change to not just load previous but check if it need new value
+    // - change of normal > threashold
+    // - change of depth > threashold
+    // - Out of previoys frame
+
+    // Get previous frame screen position 
+    vec4 screenH = (mats.priorViewProj * vec4(firstPos, 1.0)); // project to previous buffer
+    vec2 screen = ((screenH.xy / screenH.w) + vec2(1.0)) / 2.0; // H-division and map to [0,1]
+    
+    // Calculate Previous
+    vec4 previous = vec4(0.0); // P
+    vec4 previousFragments[2][2];
+
+    //  _________________
+    //  |       |       |
+    //  |  iloc | iloc  |
+    //  |  0,1  | 1,1   |
+    //  |_______|_______|
+    //  |       | x     | _  <<---- x = floc
+    //  |  iloc | iloc  |  | offset.y
+    //  |  0,0  | 1,0   | _|
+    //  |_______|_______|  
+    //      |_____|      
+    //         offset.x
+
+    vec2 floc = screen * gl_LaunchSizeEXT.xy - vec2(0.5);
+    vec2 offset = fract(floc); // 0 - 1 offset between 4 neighbots.
+    ivec2 iloc = ivec2(floc); // (0, 0) is left bottom of the 4 neighbors.
+
+    // Calculate weight // weight = bilinear * selective (0 or 1)
+    float w[2][2];
+    // Calculate Bilinear
+    float b[2][2];
+    b[0][0] = ( 1.0 - offset.x ) * ( 1.0 - offset.y ); // 1.0 from max weight
+    b[1][0] = (       offset.x ) * ( 1.0 - offset.y );
+    b[0][1] = ( 1.0 - offset.x ) * (       offset.y );
+    b[1][1] = (       offset.x ) * (       offset.y );
+    
+    vec3 prevNormal;
+    float prevDepth;
+
+    // Calculate Selective
+    //int s[2][2];
+    float sumDenominator = 0.0;
+    for(int i = 0; i < 2; ++i)
+    {
+        for(int j = 0; j < 2; ++j)
+        {
+            // load old image
+            w[i][j] = 0;
+            previousFragments[i][j] = vec4(0.0);
+            vec4 oldNd = imageLoad(ndPrev, iloc + ivec2(i,j));
+            prevNormal = oldNd.xyz; //i,j = 0,0 - 1,1 
+            prevDepth = oldNd.w;
+
+            if( dot(firstNormal, prevNormal) > pcRay.n_threshold
+                && abs(firstDepth - prevDepth) < pcRay.d_threshold)
+            {
+                //s[i][j] = 1;
+                w[i][j] = b[i][j];
+                previousFragments[i][j] = imageLoad(colPrev, iloc + ivec2(i,j));
+                previous += previousFragments[i][j] * w[i][j];
+                sumDenominator += w[i][j];
+            }
+            else
+            {
+                //s[i][j] = 0;
+                w[i][j] = 0;
+            }
+        }
+    }
+
+    previous /= sumDenominator;
+    
+
+    float oldN = previous.w; // Beware: this will not be an integer anymore. This is not a problem!
+    vec3 oldAve = previous.xyz;
+
+    if( !firstHit
+        || screen.x < 0.0 || screen.x > 1.0
+        || screen.y < 0.0 || screen.y > 1.0)
+    {
+        oldN = 1.0;
+        oldAve = vec3(0.3);
+    }
+
+    float newN = oldN + 1.0;
+    vec3 newAve = oldAve + (C - oldAve) / newN;
+
+
+    if( !any(isnan(newAve)) && !any(isinf(newAve)) )
+    {
+        imageStore(colCurr, ivec2(gl_LaunchIDEXT.xy), vec4(newAve, newN));
+    }
+    else
+    {
+        //imageStore(colCurr, ivec2(gl_LaunchIDEXT.xy), vec4(oldAve, oldN));
+    }
+
+
+    if( !any(isnan(firstKd)) && !any(isinf(firstKd)) )
+    {
+        imageStore(kdCurr, ivec2(gl_LaunchIDEXT.xy), firstKd);
+    }
+
+    if( !any(isnan(firstNormal)) && !any(isinf(firstNormal)) && !isnan(firstDepth) && !isinf(firstDepth))
+    {
+        imageStore(ndCurr, ivec2(gl_LaunchIDEXT.xy), vec4(firstNormal,firstDepth));
+    }
+
+    // Debug
+    /*
+    */
+    //imageStore(colCurr, ivec2(gl_LaunchIDEXT.xy), vec4(prevNormal, 1.0));
+    if(!firstHit)
+    {
+        imageStore(colCurr, ivec2(gl_LaunchIDEXT.xy), vec4(vec3(0.2,0.1,0.1), 1.0));
     }
 }

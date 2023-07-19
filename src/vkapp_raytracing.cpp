@@ -24,6 +24,28 @@ void VkApp::createRtBuffers()
     transitionImageLayout(m_rtColCurrBuffer.image, VK_FORMAT_R32G32B32A32_SFLOAT,
                           VK_IMAGE_LAYOUT_UNDEFINED,
                           VK_IMAGE_LAYOUT_GENERAL, 1);
+    m_rtColPrevBuffer = createBufferImage(windowSize);
+    transitionImageLayout(m_rtColPrevBuffer.image, VK_FORMAT_R32G32B32A32_SFLOAT,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_GENERAL, 1);
+
+    m_rtKdCurrBuffer = createBufferImage(windowSize);
+    transitionImageLayout(m_rtKdCurrBuffer.image, VK_FORMAT_R32G32B32A32_SFLOAT,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_GENERAL, 1);
+    m_rtKdPrevBuffer = createBufferImage(windowSize);
+    transitionImageLayout(m_rtKdPrevBuffer.image, VK_FORMAT_R32G32B32A32_SFLOAT,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_GENERAL, 1);
+
+    m_rtNdCurrBuffer = createBufferImage(windowSize);
+    transitionImageLayout(m_rtNdCurrBuffer.image, VK_FORMAT_R32G32B32A32_SFLOAT,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_GENERAL, 1);
+    m_rtNdPrevBuffer = createBufferImage(windowSize);
+    transitionImageLayout(m_rtNdPrevBuffer.image, VK_FORMAT_R32G32B32A32_SFLOAT,
+                          VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_GENERAL, 1);
 
     // @@ Destroy whatever buffers were created.
 
@@ -58,8 +80,19 @@ void VkApp::createRtDescriptorSet()
     m_rtDesc.setBindings(m_device, {
             {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1,  // TLAS
              VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR},
-            {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1,  // Output image
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1,  // Output image Current
              VK_SHADER_STAGE_RAYGEN_BIT_KHR},
+            { 2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1,  // Output image Prev
+            VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+            { 3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1,  // Kd image Current
+            VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+            { 4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1,  // Kd image Preb
+            VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+            { 5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1,  // N/D image Current
+            VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+            { 6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1,  // N/D image Prev
+            VK_SHADER_STAGE_RAYGEN_BIT_KHR },
+            // layout 7 for explicit lighting
         });
     
 
@@ -67,6 +100,11 @@ void VkApp::createRtDescriptorSet()
 
     m_rtDesc.write(m_device, 0, m_rtBuilder.getAccelerationStructure());
     m_rtDesc.write(m_device, 1, m_rtColCurrBuffer.Descriptor());
+    m_rtDesc.write(m_device, 2, m_rtColPrevBuffer.Descriptor());
+    m_rtDesc.write(m_device, 3, m_rtKdCurrBuffer.Descriptor());
+    m_rtDesc.write(m_device, 4, m_rtKdPrevBuffer.Descriptor());
+    m_rtDesc.write(m_device, 5, m_rtNdCurrBuffer.Descriptor());
+    m_rtDesc.write(m_device, 6, m_rtNdPrevBuffer.Descriptor());
 }
 
 // Pipeline for the ray tracer: all shaders, raygen, chit, miss
@@ -312,6 +350,9 @@ void VkApp::raytrace()
         m_pcRay.depth++;
     }
 
+    m_pcRay.n_threshold = 0.95;
+    m_pcRay.d_threshold = 0.15;
+
     //m_pcRay.depth = std::min(m_pcRay.depth, 4);
 
     m_pcRay.clear = app->myCamera.modified;
@@ -354,8 +395,9 @@ void VkApp::raytrace()
     // that image on the screen.
     CmdCopyImage(m_rtColCurrBuffer, m_scImageBuffer);
     
-    //CmdCopyImage(m_rtColCurrBuffer, m_rtColPrevBuffer);
-    //CmdCopyImage(m_rtKdCurrBuffer, m_rtKdPrevBuffer);
-    //CmdCopyImage(m_rtNdCurrBuffer, m_rtNdPrevBuffer);
+    // For History Accumulation
+    CmdCopyImage(m_rtColCurrBuffer, m_rtColPrevBuffer);
+    CmdCopyImage(m_rtKdCurrBuffer, m_rtKdPrevBuffer);
+    CmdCopyImage(m_rtNdCurrBuffer, m_rtNdPrevBuffer);
 }
 

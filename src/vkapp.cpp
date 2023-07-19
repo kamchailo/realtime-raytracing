@@ -55,7 +55,7 @@ VkApp::VkApp(App* _app) : app(_app)
      createScPipeline();
     
      createRtBuffers();
-    // createDenoiseBuffer();
+     //createDenoiseBuffer();
 
      //createStuff();
 
@@ -144,6 +144,10 @@ void VkApp::prepareFrame()
     // Use a fence to wait until the command buffer has finished execution before using it again
     while (VK_TIMEOUT == vkWaitForFences(m_device, 1, &m_waitFence, VK_TRUE, 1'000'000))
         {}
+    /*
+    *  Also work!
+    vkDeviceWaitIdle(m_device);
+    */
 }
 
 void VkApp::submitFrame()
