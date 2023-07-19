@@ -297,7 +297,8 @@ void main()
 
     if( !firstHit
         || screen.x < 0.0 || screen.x > 1.0
-        || screen.y < 0.0 || screen.y > 1.0)
+        || screen.y < 0.0 || screen.y > 1.0
+        || sumDenominator == 0.0)
     {
         oldN = 1.0;
         oldAve = vec3(0.3);

@@ -350,8 +350,8 @@ void VkApp::raytrace()
         m_pcRay.depth++;
     }
 
-    m_pcRay.n_threshold = 0.95;
-    m_pcRay.d_threshold = 0.15;
+    m_pcRay.n_threshold = 0.90;
+    m_pcRay.d_threshold = 0.05;
 
     //m_pcRay.depth = std::min(m_pcRay.depth, 4);
 
